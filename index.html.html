@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>아기 단어 배우기</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Arial Rounded MT Bold', Arial, sans-serif; background: #FFF8F0; height: 100vh; overflow: hidden; user-select: none; }
+
+  .screen { display: none; width: 100%; height: 100vh; }
+  .screen.active { display: flex; flex-direction: column; }
+
+  /* HOME */
+  #homeScreen {
+    background: linear-gradient(160deg, #FFE0EC 0%, #FFF3CC 50%, #E0F4FF 100%);
+    align-items: center; justify-content: center; gap: 28px; padding: 40px 20px;
+  }
+  .home-title { font-size: 56px; animation: bounce 2s infinite; }
+  @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+
+  .categories-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 14px; width: 100%; max-width: 400px; }
+  .cat-btn {
+    background: white; border: none; border-radius: 22px; padding: 18px 12px;
+    font-size: 18px; font-weight: bold; color: #333;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.1); cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .cat-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.1); }
+  .cat-emoji { font-size: 38px; }
+  .cat-name { font-size: 15px; color: #666; }
+  .home-btns { display: flex; gap: 14px; }
+  .icon-btn {
+    background: white; border: none; border-radius: 50%;
+    width: 58px; height: 58px; font-size: 26px; cursor: pointer;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.1); transition: transform 0.1s;
+  }
+  .icon-btn:active { transform: scale(0.9); }
+
+  /* WORD SCREEN */
+  #wordScreen { position: relative; overflow: hidden; }
+  .word-bg { position: absolute; inset: 0; background: #111; z-index: 0; }
+  .word-photo {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; z-index: 1; transition: opacity 0.4s;
+  }
+  .photo-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 55%);
+    z-index: 2;
+  }
+  .word-label {
+    position: absolute; bottom: 90px; left: 0; right: 0;
+    text-align: center; z-index: 3;
+  }
+  .word-emoji-big { font-size: 70px; display: block; filter: drop-shadow(0 3px 10px rgba(0,0,0,0.5)); }
+
+  .back-btn {
+    position: absolute; top: 18px; left: 18px; z-index: 10;
+    background: rgba(255,255,255,0.22); border: none; border-radius: 50%;
+    width: 48px; height: 48px; font-size: 22px; cursor: pointer;
+    backdrop-filter: blur(8px); color: white;
+  }
+
+  .progress-bar {
+    position: absolute; top: 0; left: 0; height: 5px;
+    background: rgba(255,255,255,0.8); z-index: 10;
+    transition: width 0.3s;
+  }
+
+  .touch-overlay { position: absolute; inset: 0; z-index: 5; cursor: pointer; }
+
+  .particles-container { position: absolute; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; }
+  .particle {
+    position: absolute; font-size: 28px;
+    animation: pfloat 1s ease-out forwards; pointer-events: none;
+  }
+  @keyframes pfloat {
+    0%{transform:scale(0) translateY(0);opacity:1}
+    100%{transform:scale(1.5) translateY(-160px);opacity:0}
+  }
+
+  .praise-overlay {
+    position: absolute; inset: 0; z-index: 8;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.25); backdrop-filter: blur(3px);
+    opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  }
+  .praise-overlay.show { opacity: 1; pointer-events: auto; }
+  .praise-content { font-size: 90px; animation: ppop 0.5s cubic-bezier(0.36,0.07,0.19,0.97); }
+  @keyframes ppop { 0%{transform:scale(0) rotate(-10deg)} 60%{transform:scale(1.3) rotate(5deg)} 100%{transform:scale(1) rotate(0)} }
+
+  .swipe-hint {
+    position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
+    color: rgba(255,255,255,0.55); font-size: 14px; z-index: 3;
+    animation: fpulse 2.5s infinite;
+  }
+  @keyframes fpulse { 0%,100%{opacity:0.3} 50%{opacity:0.9} }
+
+  .sound-wave {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 60px; height: 60px; border-radius: 50%;
+    background: rgba(255,255,255,0.25); z-index: 4;
+    animation: wexp 0.7s ease-out forwards; pointer-events: none;
+  }
+  @keyframes wexp { 0%{width:40px;height:40px;opacity:0.7} 100%{width:320px;height:320px;opacity:0} }
+
+  /* RECORD SCREEN */
+  #recordScreen {
+    background: linear-gradient(160deg, #E8F4FF, #F0E8FF);
+    align-items: center; justify-content: flex-start;
+    padding: 60px 20px 20px; gap: 20px; overflow-y: auto;
+  }
+  .record-title { font-size: 26px; color: #6B48FF; font-weight: bold; }
+  .record-word-list { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 10px; }
+  .record-item {
+    background: white; border-radius: 16px; padding: 14px 18px;
+    display: flex; align-items: center; gap: 14px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.07);
+  }
+  .rec-emoji { font-size: 30px; }
+  .rec-info { flex: 1; }
+  .rec-name { font-size: 20px; font-weight: bold; color: #333; }
+  .rec-status { font-size: 13px; color: #999; margin-top: 2px; }
+  .rec-btn {
+    background: #FF6B9D; border: none; border-radius: 50%;
+    width: 46px; height: 46px; font-size: 20px; cursor: pointer;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.12); transition: transform 0.1s;
+  }
+  .rec-btn:active { transform: scale(0.9); }
+  .rec-btn.recorded { background: #6BCB77; }
+
+  .back-home-btn {
+    background: white; border: none; border-radius: 18px;
+    padding: 14px 30px; font-size: 17px; font-weight: bold;
+    color: #6B48FF; cursor: pointer; box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+  }
+
+  /* ADD SCREEN */
+  #addScreen {
+    background: linear-gradient(160deg, #FFF0E8, #E8FFE8);
+    align-items: center; padding: 60px 20px 30px;
+    gap: 18px; overflow-y: auto;
+  }
+  .add-title { font-size: 26px; font-weight: bold; color: #FF6B00; }
+  .add-form { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 14px; }
+  .add-input {
+    background: white; border: 3px solid #FFD93D; border-radius: 14px;
+    padding: 15px 18px; font-size: 20px; font-family: inherit; outline: none; width: 100%;
+  }
+  .add-input:focus { border-color: #FF9A3C; }
+  .photo-preview {
+    width: 100%; height: 190px; background: white; border: 3px dashed #ccc;
+    border-radius: 18px; display: flex; align-items: center; justify-content: center;
+    font-size: 44px; cursor: pointer; overflow: hidden; flex-direction: column; gap: 8px;
+  }
+  .photo-preview img { width: 100%; height: 100%; object-fit: cover; border-radius: 14px; }
+  .big-btn {
+    background: linear-gradient(135deg, #FF9A3C, #FF6B9D); border: none;
+    border-radius: 18px; padding: 16px; font-size: 20px; font-weight: bold;
+    color: white; cursor: pointer; box-shadow: 0 5px 0 rgba(0,0,0,0.15);
+    transition: transform 0.1s;
+  }
+  .big-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0,0,0,0.15); }
+  .big-btn.green { background: linear-gradient(135deg,#6BCB77,#4DA6FF); }
+  .big-btn.recording { background: linear-gradient(135deg,#FF4444,#FF9A3C); }
+
+  .rec-indicator {
+    display: none; align-items: center; gap: 10px;
+    background: #FFE0E0; border-radius: 12px; padding: 10px 14px;
+    font-size: 16px; color: #FF4444; font-weight: bold;
+  }
+  .rec-indicator.on { display: flex; }
+  .recdot { width: 12px; height: 12px; background: #FF4444; border-radius: 50%; animation: blink 1s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.15} }
+
+  /* Slide */
+  .slide-in-left { animation: sil 0.28s ease; }
+  .slide-in-right { animation: sir 0.28s ease; }
+  @keyframes sil { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+  @keyframes sir { from{transform:translateX(-100%);opacity:0} to{transform:translateX(0);opacity:1} }
+</style>
+</head>
+<body>
+
+<!-- HOME -->
+<div id="homeScreen" class="screen active">
+  <div class="home-title">🌈</div>
+  <div class="categories-grid">
+    <button class="cat-btn" onclick="startCat('food')" style="border-bottom:6px solid #FF6B9D"><span class="cat-emoji">🍎</span><span class="cat-name">음식</span></button>
+    <button class="cat-btn" onclick="startCat('animal')" style="border-bottom:6px solid #6BCB77"><span class="cat-emoji">🐶</span><span class="cat-name">동물</span></button>
+    <button class="cat-btn" onclick="startCat('vehicle')" style="border-bottom:6px solid #4DA6FF"><span class="cat-emoji">🚗</span><span class="cat-name">탈것</span></button>
+    <button class="cat-btn" onclick="startCat('home')" style="border-bottom:6px solid #FFD93D"><span class="cat-emoji">🏠</span><span class="cat-name">집안</span></button>
+    <button class="cat-btn" onclick="startCat('family')" style="border-bottom:6px solid #C77DFF"><span class="cat-emoji">👨‍👩‍👧</span><span class="cat-name">가족</span></button>
+    <button class="cat-btn" onclick="startCat('custom')" style="border-bottom:6px solid #FF9A3C"><span class="cat-emoji">⭐</span><span class="cat-name">내 단어</span></button>
+  </div>
+  <div class="home-btns">
+    <button class="icon-btn" onclick="show('addScreen')">➕</button>
+    <button class="icon-btn" onclick="show('recordScreen')">🎤</button>
+  </div>
+</div>
+
+<!-- WORD -->
+<div id="wordScreen" class="screen">
+  <div class="word-bg"></div>
+  <div class="progress-bar" id="progressBar"></div>
+  <img class="word-photo" id="wordPhoto" src="" alt="">
+  <div class="photo-overlay"></div>
+  <button class="back-btn" onclick="show('homeScreen')">←</button>
+  <div class="word-label">
+    <span class="word-emoji-big" id="wordEmoji"></span>
+  </div>
+  <div class="touch-overlay" id="touchOverlay"></div>
+  <div class="particles-container" id="particles"></div>
+  <div class="praise-overlay" id="praiseOverlay" onclick="this.classList.remove('show')">
+    <div class="praise-content" id="praiseContent"></div>
+  </div>
+  <div class="swipe-hint">← 스와이프 →</div>
+</div>
+
+<!-- RECORD -->
+<div id="recordScreen" class="screen">
+  <div style="font-size:38px">🎤</div>
+  <div class="record-title">엄마·아빠 목소리 녹음</div>
+  <div class="record-word-list" id="recordList"></div>
+  <button class="back-home-btn" onclick="show('homeScreen')">← 홈으로</button>
+</div>
+
+<!-- ADD -->
+<div id="addScreen" class="screen">
+  <div class="add-title">✏️ 새 단어 추가</div>
+  <div class="add-form">
+    <input class="add-input" id="newName" placeholder="단어 이름 (예: 뭉치)" maxlength="10">
+    <input class="add-input" id="newEmoji" placeholder="이모지 (예: 🐕)" maxlength="4">
+    <div class="photo-preview" id="photoPreview" onclick="document.getElementById('photoInput').click()">
+      📷<br><span style="font-size:15px;color:#aaa">사진 찍거나 선택</span>
+    </div>
+    <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none" onchange="onPhotoSelect(event)">
+    <div class="rec-indicator" id="addRecInd"><div class="recdot"></div> 녹음 중... (최대 5초)</div>
+    <button class="big-btn" id="addRecBtn" onclick="toggleAddRec()">🎤 발음 녹음하기</button>
+    <button class="big-btn green" onclick="saveWord()">💾 저장하기</button>
+    <button class="back-home-btn" style="text-align:center" onclick="show('homeScreen')">← 홈으로</button>
+  </div>
+</div>
+
+<script>
+const WORDS = {
+  food:[
+    {name:'사과',emoji:'🍎',q:'red apple fruit close up'},
+    {name:'바나나',emoji:'🍌',q:'yellow banana fruit'},
+    {name:'딸기',emoji:'🍓',q:'fresh strawberry red'},
+    {name:'포도',emoji:'🍇',q:'purple grapes bunch'},
+    {name:'우유',emoji:'🥛',q:'glass of milk white'},
+    {name:'계란',emoji:'🥚',q:'white eggs basket'},
+    {name:'빵',emoji:'🍞',q:'fresh bread bakery'},
+    {name:'오렌지',emoji:'🍊',q:'orange fruit sliced'},
+  ],
+  animal:[
+    {name:'강아지',emoji:'🐶',q:'cute puppy dog fluffy'},
+    {name:'고양이',emoji:'🐱',q:'cute kitten cat'},
+    {name:'토끼',emoji:'🐰',q:'white bunny rabbit cute'},
+    {name:'오리',emoji:'🦆',q:'duck pond'},
+    {name:'코끼리',emoji:'🐘',q:'elephant wildlife'},
+    {name:'사자',emoji:'🦁',q:'lion mane wildlife'},
+    {name:'곰',emoji:'🐻',q:'bear wildlife'},
+    {name:'펭귄',emoji:'🐧',q:'penguin cute'},
+  ],
+  vehicle:[
+    {name:'자동차',emoji:'🚗',q:'colorful car road'},
+    {name:'버스',emoji:'🚌',q:'yellow bus street'},
+    {name:'기차',emoji:'🚂',q:'train railway'},
+    {name:'비행기',emoji:'✈️',q:'airplane blue sky'},
+    {name:'배',emoji:'⛵',q:'sailboat ocean'},
+    {name:'자전거',emoji:'🚲',q:'bicycle colorful'},
+  ],
+  home:[
+    {name:'컵',emoji:'🥤',q:'colorful cup drink'},
+    {name:'신발',emoji:'👟',q:'colorful sneakers'},
+    {name:'공',emoji:'⚽',q:'colorful ball toy'},
+    {name:'침대',emoji:'🛏️',q:'cozy bed bedroom'},
+    {name:'책',emoji:'📚',q:'colorful books stack'},
+    {name:'인형',emoji:'🧸',q:'teddy bear stuffed toy'},
+    {name:'의자',emoji:'🪑',q:'wooden chair furniture'},
+  ],
+  family:[
+    {name:'엄마',emoji:'👩',q:'smiling mother woman'},
+    {name:'아빠',emoji:'👨',q:'smiling father man'},
+    {name:'아기',emoji:'👶',q:'cute baby infant'},
+    {name:'할머니',emoji:'👵',q:'grandmother smiling elderly'},
+    {name:'할아버지',emoji:'👴',q:'grandfather smiling elderly'},
+  ],
+};
+
+let customWords = [];
+try { customWords = JSON.parse(localStorage.getItem('bwCustom') || '[]'); } catch(e) {}
+
+let curWords = [], curIdx = 0, seqCount = 0, lastTapTime = 0;
+let touchStartX = 0, touchStartY = 0;
+let recMR = null, recActive = false, recTarget = null;
+let addMR = null, addChunks = [], addRec = null, newPhoto = null;
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (id === 'recordScreen') buildRecList();
+}
+
+function startCat(cat) {
+  if (cat === 'custom') {
+    if (!customWords.length) { alert('아직 추가한 단어가 없어요! ➕ 버튼으로 추가해보세요!'); return; }
+    curWords = customWords;
+  } else {
+    curWords = WORDS[cat] || [];
+  }
+  curIdx = 0; seqCount = 0;
+  show('wordScreen');
+  loadWord(0, 'none');
+}
+
+function photoUrl(q) {
+  return `https://source.unsplash.com/800x1200/?${encodeURIComponent(q)}&random=${Math.random()}`;
+}
+
+function loadWord(idx, dir) {
+  const w = curWords[idx];
+  if (!w) return;
+  seqCount++;
+
+  const photo = document.getElementById('wordPhoto');
+  photo.style.opacity = '0';
+
+  if (w.photoData) {
+    photo.src = w.photoData;
+  } else {
+    photo.src = photoUrl(w.q || w.name);
+  }
+  photo.onload = () => { photo.style.opacity = '1'; };
+  photo.onerror = () => {
+    document.querySelector('.word-bg').style.background = `hsl(${Math.floor(Math.random()*360)},65%,45%)`;
+  };
+
+  document.getElementById('wordEmoji').textContent = w.emoji;
+
+  // progress bar
+  const pct = ((idx+1)/curWords.length*100).toFixed(1);
+  document.getElementById('progressBar').style.width = pct + '%';
+
+  // slide
+  const ov = document.getElementById('touchOverlay');
+  if (dir === 'left') { ov.classList.remove('slide-in-right'); void ov.offsetWidth; ov.classList.add('slide-in-left'); }
+  else if (dir === 'right') { ov.classList.remove('slide-in-left'); void ov.offsetWidth; ov.classList.add('slide-in-right'); }
+
+  setTimeout(() => playWord(w), 500);
+
+  if (seqCount > 0 && seqCount % 3 === 0) setTimeout(showPraise, 900);
+}
+
+let curAudio = null;
+function playWord(w) {
+  if (curAudio) { try { curAudio.pause(); } catch(e){} curAudio = null; }
+  const recKey = `bwRec_${w.name}`;
+  let recData;
+  try { recData = localStorage.getItem(recKey); } catch(e) {}
+
+  if (recData) {
+    curAudio = new Audio(recData);
+    curAudio.play().catch(()=>{});
+  } else {
+    if ('speechSynthesis' in window) {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(w.name);
+      u.lang = 'ko-KR'; u.rate = 0.7; u.pitch = 1.3;
+      speechSynthesis.speak(u);
+    }
+  }
+  addWave();
+}
+
+function addWave() {
+  const ws = document.createElement('div');
+  ws.className = 'sound-wave';
+  document.getElementById('wordScreen').appendChild(ws);
+  setTimeout(() => ws.remove(), 700);
+}
+
+// Touch
+const ov = document.getElementById('touchOverlay');
+ov.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; }, {passive:true});
+ov.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) { dx < 0 ? nextWord() : prevWord(); }
+  else if (Math.abs(dx) < 12 && Math.abs(dy) < 12) onTap(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+}, {passive:true});
+ov.addEventListener('mousedown', e => { touchStartX = e.clientX; touchStartY = e.clientY; });
+ov.addEventListener('mouseup', e => {
+  const dx = e.clientX - touchStartX, dy = e.clientY - touchStartY;
+  if (Math.abs(dx) < 12 && Math.abs(dy) < 12) onTap(e.clientX, e.clientY);
+});
+
+function onTap(x, y) {
+  spawnParticles(x, y);
+  const now = Date.now();
+  if (now - lastTapTime < 350) nextWord();
+  else playWord(curWords[curIdx]);
+  lastTapTime = now;
+}
+
+function nextWord() { curIdx = (curIdx + 1) % curWords.length; loadWord(curIdx, 'left'); }
+function prevWord() { curIdx = (curIdx - 1 + curWords.length) % curWords.length; loadWord(curIdx, 'right'); }
+
+const PEMS = ['⭐','❤️','🌟','💛','🎉','✨','💖','🌈','🦋','🍀'];
+function spawnParticles(x, y) {
+  const c = document.getElementById('particles');
+  for (let i = 0; i < 7; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.textContent = PEMS[Math.floor(Math.random()*PEMS.length)];
+    p.style.left = (x + (Math.random()-0.5)*100) + 'px';
+    p.style.top = (y + (Math.random()-0.5)*100) + 'px';
+    p.style.animationDelay = (Math.random()*0.15) + 's';
+    c.appendChild(p);
+    setTimeout(() => p.remove(), 1100);
+  }
+}
+
+const PRAISES = ['🎉','🏆','⭐','🌟','🥳','🎊','💯','🎈','🌈'];
+function showPraise() {
+  const ov = document.getElementById('praiseOverlay');
+  document.getElementById('praiseContent').textContent = PRAISES[Math.floor(Math.random()*PRAISES.length)];
+  ov.classList.add('show');
+  if ('speechSynthesis' in window) {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance('짝짝짝! 잘했어요!');
+    u.lang = 'ko-KR'; u.rate = 0.85; u.pitch = 1.4;
+    speechSynthesis.speak(u);
+  }
+  setTimeout(() => ov.classList.remove('show'), 2200);
+}
+
+// RECORD LIST
+function buildRecList() {
+  const all = Object.values(WORDS).flat().concat(customWords);
+  const c = document.getElementById('recordList');
+  c.innerHTML = all.map(w => {
+    const k = `bwRec_${w.name}`;
+    let has = false;
+    try { has = !!localStorage.getItem(k); } catch(e) {}
+    return `<div class="record-item">
+      <span class="rec-emoji">${w.emoji}</span>
+      <div class="rec-info">
+        <div class="rec-name">${w.name}</div>
+        <div class="rec-status">${has ? '✅ 녹음됨 (탭=재생, 다시탭=재녹음)' : '🎤 녹음 안됨'}</div>
+      </div>
+      <button class="rec-btn ${has?'recorded':''}" id="rb_${w.name}" onclick="toggleRec('${w.name}',this)">${has?'✅':'🎤'}</button>
+    </div>`;
+  }).join('');
+}
+
+async function toggleRec(name, btn) {
+  const k = `bwRec_${name}`;
+  let has = false;
+  try { has = !!localStorage.getItem(k); } catch(e) {}
+
+  if (recActive && recTarget === name) {
+    recMR.stop(); return;
+  }
+
+  if (has && !recActive) {
+    let d; try { d = localStorage.getItem(k); } catch(e) {}
+    if (d) { const a = new Audio(d); a.play(); return; }
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    recMR = new MediaRecorder(stream);
+    const chunks = [];
+    recMR.ondataavailable = e => chunks.push(e.data);
+    recMR.onstop = () => {
+      const blob = new Blob(chunks, {type:'audio/webm'});
+      const fr = new FileReader();
+      fr.onload = () => { try { localStorage.setItem(k, fr.result); } catch(e){} buildRecList(); };
+      fr.readAsDataURL(blob);
+      stream.getTracks().forEach(t => t.stop());
+      recActive = false; recTarget = null;
+    };
+    recMR.start();
+    recActive = true; recTarget = name;
+    btn.textContent = '⏹️'; btn.style.background = '#FF4444';
+    setTimeout(() => { if (recActive && recTarget === name && recMR.state === 'recording') recMR.stop(); }, 4000);
+  } catch(e) { alert('마이크 권한이 필요해요!'); }
+}
+
+// ADD WORD
+function onPhotoSelect(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const fr = new FileReader();
+  fr.onload = ev => {
+    newPhoto = ev.target.result;
+    const p = document.getElementById('photoPreview');
+    p.innerHTML = `<img src="${newPhoto}">`;
+  };
+  fr.readAsDataURL(f);
+}
+
+async function toggleAddRec() {
+  const btn = document.getElementById('addRecBtn');
+  const ind = document.getElementById('addRecInd');
+
+  if (addMR && addMR.state === 'recording') { addMR.stop(); return; }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    addMR = new MediaRecorder(stream);
+    addChunks = [];
+    addMR.ondataavailable = e => addChunks.push(e.data);
+    addMR.onstop = () => {
+      const blob = new Blob(addChunks, {type:'audio/webm'});
+      const fr = new FileReader();
+      fr.onload = () => { addRec = fr.result; };
+      fr.readAsDataURL(blob);
+      stream.getTracks().forEach(t => t.stop());
+      ind.classList.remove('on');
+      btn.textContent = '✅ 녹음 완료';
+      btn.className = 'big-btn green';
+    };
+    addMR.start();
+    ind.classList.add('on');
+    btn.textContent = '⏹️ 중지';
+    btn.className = 'big-btn recording';
+    setTimeout(() => { if (addMR && addMR.state === 'recording') addMR.stop(); }, 5000);
+  } catch(e) { alert('마이크 권한이 필요해요!'); }
+}
+
+function saveWord() {
+  const name = document.getElementById('newName').value.trim();
+  const emoji = document.getElementById('newEmoji').value.trim() || '⭐';
+  if (!name) { alert('단어 이름을 입력해주세요!'); return; }
+
+  const w = {name, emoji, q:name, photoData:newPhoto};
+  customWords.push(w);
+  try { localStorage.setItem('bwCustom', JSON.stringify(customWords)); } catch(e) {}
+  if (addRec) { try { localStorage.setItem(`bwRec_${name}`, addRec); } catch(e) {} }
+
+  document.getElementById('newName').value = '';
+  document.getElementById('newEmoji').value = '';
+  document.getElementById('photoPreview').innerHTML = '📷<br><span style="font-size:15px;color:#aaa">사진 찍거나 선택</span>';
+  document.getElementById('addRecBtn').textContent = '🎤 발음 녹음하기';
+  document.getElementById('addRecBtn').className = 'big-btn';
+  document.getElementById('addRecInd').classList.remove('on');
+  newPhoto = null; addRec = null; addChunks = [];
+
+  alert(`"${name}" 단어가 추가됐어요! 🎉`);
+  show('homeScreen');
+}
+</script>
+</body>
+</html>
